@@ -11,7 +11,7 @@ for year in list_years:
 
     with urllib.request.urlopen(req, data=params) as response:
         resp = response.read()
-        # print(resp)
+        print(resp)
         f = open("../weather_files/weather_" + str(year) + ".csv", "w")
         f.write(resp.decode("utf-8"))
         f.close()
