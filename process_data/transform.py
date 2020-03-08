@@ -2,7 +2,6 @@ from pyspark.sql import SparkSession
 from pyspark.sql import SQLContext
 from process_data.schema import schema
 
-
 if __name__ == '__main__':
     scSpark = SparkSession \
         .builder \
@@ -13,10 +12,11 @@ if __name__ == '__main__':
         .appName("reading csv") \
         .getOrCreate()
 
-
-    data_file = "D:\\Workspace\\weather_analysis\\weather_files\\weather_1989.csv"
-    sdfData = scSpark.read.csv(data_file,header=False, sep=",", comment="#",schema=schema).cache()
-    # sdfData = scSpark.read.csv(data_file, header=False, sep=",", comment="#",inferSchema=True).cache()
-    # print(sdfData.printSchema())
+    data_file = "D:\\Workspace\\weather_analysis\\weather_files\\weather*.csv"
+    sdfData = scSpark.read.csv(data_file, header=False, sep=",", comment="#", schema=schema,
+                               ignoreLeadingWhiteSpace=True,dateFormat='yyyyMMdd').cache()
+    # sdfData = scSpark.read.csv(data_file, header=False, sep=",", comment="#", inferSchema=True).cache()
+    # sfData_with_datatype = sdfData.withColumn('STN', sdfData['STN'].cast('int'))
+    print(sdfData.printSchema())
     print('Total Records = {}'.format(sdfData.count()))
-    sdfData.show()
+    sdfData.na.fill(0).show()
