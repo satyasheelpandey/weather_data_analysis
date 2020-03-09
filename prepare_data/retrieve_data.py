@@ -15,4 +15,6 @@ if __name__ == '__main__':
             print(resp)
             f = open("../weather_files/weather_" + str(year) + ".csv", "w")
             f.write(resp.decode("utf-8"))
+            # f.write((resp.decode("utf-8")).replace(" ", ""))
+
             f.close()
