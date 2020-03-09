@@ -1,7 +1,6 @@
-from pyspark.sql import SparkSession
-from pyspark.sql import SQLContext
 from process_data.schema import schema
-from pyspark.sql import functions
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import year, format_number, when
 
 if __name__ == '__main__':
     # setting up spark context
@@ -14,19 +13,28 @@ if __name__ == '__main__':
         .appName("reading csv") \
         .getOrCreate()
     # reading the csv files ignoring the spaces and specifiying the date format
-    data_file = "D:\\Workspace\\weather_analysis\\weather_files\\weather*.csv"
+    data_file = "../weather_files/weather*.csv"
     dataframe = scSpark.read.csv(data_file, header=False, sep=",", comment="#", schema=schema,
                                  ignoreLeadingWhiteSpace=True, dateFormat='yyyyMMdd').cache()
 
-    # sdfData = scSpark.read.csv(data_file, header=False, sep=",", comment="#", inferSchema=True).cache()
-    # sfData_with_datatype = sdfData.withColumn('STN', sdfData['STN'].cast('int'))
-    # print(dataframe.printSchema())
-    # print('Total Records = {}'.format(dataframe.count()))
-    # substituting null values with zeros
-    # dataframe.explain()
-    # dataframe.na.fill(0).show()
-    dataframe.registerTempTable("weather_data")
-    output=scSpark.sql('select distinct STN from weather_data')
-    output.show()
+    # adding the column for year so that the aggregation can be done for each year
+    # removing -1 from precipitation column to balance the skewness
+    dataframe_with_date = dataframe.withColumn("YEAR", year(dataframe["DATE"])) \
+        .withColumn("RH", when(dataframe["RH"] == -1, 0).otherwise(dataframe["RH"]))
 
+    # aggregating the data based on station and year
+    avg_years = dataframe_with_date \
+        .groupBy("STN", "YEAR") \
+        .avg("TG", "RH", "Q") \
+        .orderBy("STN", "YEAR")
 
+    # calculating average of the temp, rainfall and sunshine
+    average_years_decimals = avg_years \
+        .withColumn("AVG_TEMP (C)", format_number((avg_years["avg(TG)"] / 10), 2)) \
+        .withColumn("AVG_PRECIPITATION (MM)", format_number((avg_years["avg(RH)"]), 2)) \
+        .withColumn("AVG_SUNSHINE", format_number((avg_years["avg(Q)"]), 2)) \
+        .drop("avg(TG)", "avg(RH)", "avg(Q)")
+
+    # writing  data into a json file to be consumed further
+    average_years_decimals.coalesce(1).write.format('json').save('../output_files/average_years_decimals',
+                                                                 mode='overwrite')
